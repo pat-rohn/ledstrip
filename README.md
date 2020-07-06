@@ -2,7 +2,6 @@
 WS281* library to control leds fully written in Go. 
 Tested on Raspberry Pi using interface "/dev/spidev0.0".
 
-
 ## Example
 ```go
     conn := ledstrip.NewSPI()
@@ -21,4 +20,7 @@ Run following commands in terminal to build for ARM
   export GOARM=7
   export GOBIN=
 ```
+
+# Special Thanks
+Thank you to [Jeremy Garff](https://github.com/jgarff) for writing the C library rpi_ws281x.
 
