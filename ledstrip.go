@@ -102,7 +102,7 @@ func CreateTest() []RGBPixel {
 }
 
 //RunLEDS lets LEDs move for time given
-func (conn *Connection) RunLEDS(leds []RGBPixel, runTime time.Duration) {
+func (conn *ConnectionSPI) RunLEDS(leds []RGBPixel, runTime time.Duration) {
 	logFields := log.Fields{"package": logPkg, "func": "RunLEDS"}
 	log.WithFields(logFields).Traceln("RunLEDS")
 	runTime = runTime / 4
@@ -114,15 +114,15 @@ func (conn *Connection) RunLEDS(leds []RGBPixel, runTime time.Duration) {
 		time.Sleep(waitTime)
 
 	}
+
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
 		conn.RenderLEDs(leds)
 		leds = placeInFront(leds, leds[len(leds)-1])
 		waitTime := (runTime - endTime.Sub(time.Now())) / 100
-
 		time.Sleep(waitTime)
-
 	}
+
 	leds = inverse(leds)
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
@@ -142,14 +142,14 @@ func (conn *Connection) RunLEDS(leds []RGBPixel, runTime time.Duration) {
 }
 
 // Clear switches off all LEDs
-func (conn *Connection) Clear(nrLeds int) {
+func (conn *ConnectionSPI) Clear(nrLeds int) {
 	logFields := log.Fields{"package": logPkg, "func": "Clear"}
 	log.WithFields(logFields).Traceln("Clear")
 
 	var clearArray []uint8
 
 	for i := 0; i < nrLeds; i++ {
-		clearArray = append(clearArray, getTranslatedColor([3]uint8{0, 0, 0})...)
+		clearArray = append(clearArray, conn.getTranslatedColor([3]uint8{0, 0, 0})...)
 	}
 	conn.transfer(clearArray)
 }

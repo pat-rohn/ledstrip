@@ -13,44 +13,45 @@ import (
 //https://cdn-reichelt.de/documents/datenblatt/A300/ADAFRUIT_1643_ENG_TDS.pdf
 //https://cdn-shop.adafruit.com/datasheets/WS2812.pdf
 
-// Connection contains connection and closer
-type Connection struct {
+// ConnectionSPI contains
+type ConnectionSPI struct {
 	portCloser spi.PortCloser
 	spiDev     spi.Conn
 }
 
-//New creates a SPI-Connection
-func New() Connection {
+//NewSPI creates a SPI-Connection
+func NewSPI() ConnectionSPI {
+	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "NewSPI"}
 
 	devicePath := "/dev/spidev0.0"
 	hz := physic.Hertz * 2400000
-	log.WithField("package", logPkg).Tracef("Open spi-dev '%s' with max speed '%v'", devicePath, hz)
+	log.WithFields(logFields).Tracef("Open spi-dev '%s' with max speed '%v'", devicePath, hz)
 	spiMode := spi.Mode(spi.Mode0)
-	log.WithField("package", logPkg).Infof("SPI info:  %v \n", spiMode.String())
+	log.WithFields(logFields).Infof("SPI info:  %v \n", spiMode.String())
 
 	host.Init()
 
 	s, err := spireg.Open(devicePath)
 	if err != nil {
-		log.WithField("package", logPkg).Fatalf(
+		log.WithFields(logFields).Fatalf(
 			"Failed to open Pt100Connection connection:  %v \n", err)
 	}
 	c, err := s.Connect(hz, spiMode, 8)
 	if err != nil {
-		log.WithField("package", logPkg).Fatalf(
+		log.WithFields(logFields).Fatalf(
 			"Failed to connect %v\n", err)
 	}
 
-	conn := Connection{portCloser: s, spiDev: c}
-	log.WithField("package", logPkg).Tracef("SPI info:  %v \n", c.String())
-	log.WithField("package", logPkg).Tracef("SPI info:  %v \n", c.Duplex().String())
+	conn := ConnectionSPI{portCloser: s, spiDev: c}
+	log.WithFields(logFields).Tracef("SPI info:  %v \n", c.String())
+	log.WithFields(logFields).Tracef("SPI info:  %v \n", c.Duplex().String())
 	return conn
 }
 
 //Close closes SPIConnection
-func (conn *Connection) Close() error {
-	logFields := log.Fields{"package": logPkg, "func": "Close"}
-	log.WithField("package", logPkg).Tracef("Close")
+func (conn *ConnectionSPI) Close() error {
+	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "Close"}
+	log.WithFields(logFields).Tracef("Close")
 	err := conn.portCloser.Close()
 	if err != nil {
 		log.WithFields(logFields).Errorf(
@@ -61,12 +62,15 @@ func (conn *Connection) Close() error {
 }
 
 //RenderLEDs translates RGBPixels into SPI message and transfers the message
-func (conn *Connection) RenderLEDs(pixels []RGBPixel) {
+func (conn *ConnectionSPI) RenderLEDs(pixels []RGBPixel) {
+	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "RenderLEDs"}
+	log.WithFields(logFields).Tracef("RenderLEDs with len %v", len(pixels))
 
 	var translatedRGBs []uint8
 	for _, pixel := range pixels {
 		// Composition of 24bit data of a pixel, is ordered GRB
-		translatedRGBs = append(translatedRGBs, getTranslatedColor([3]uint8{pixel.Green, pixel.Red, pixel.Blue})...)
+		translatedRGBs = append(translatedRGBs,
+			conn.getTranslatedColor([3]uint8{pixel.Green, pixel.Red, pixel.Blue})...)
 	}
 	conn.transfer(translatedRGBs)
 }
@@ -76,7 +80,7 @@ func (conn *Connection) RenderLEDs(pixels []RGBPixel) {
  * https://github.com/jgarff/rpi_ws281x/blob/master/ws2811.c
  * https://github.com/jgarff/rpi_ws281x/blob/master/LICENSE
  */
-func getTranslatedColor(pixel [3]uint8) []uint8 {
+func (conn *ConnectionSPI) getTranslatedColor(pixel [3]uint8) []uint8 {
 	logFields := log.Fields{"package": logPkg, "func": "getTranslatedColor"}
 	log.WithFields(logFields).Traceln("getTranslatedColor")
 
@@ -133,7 +137,7 @@ func getTranslatedColor(pixel [3]uint8) []uint8 {
 	return rgbTranslated
 }
 
-func (conn *Connection) transfer(msg []byte) []byte {
+func (conn *ConnectionSPI) transfer(msg []byte) []byte {
 
 	res := make([]byte, len(msg))
 	for i := range res {
