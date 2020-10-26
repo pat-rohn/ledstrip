@@ -1,4 +1,4 @@
-module github.com/pat-rohn/ledstrips
+module github.com/pat-rohn/ledstrip
 
 go 1.15
 
