@@ -114,7 +114,6 @@ func (conn *ConnectionSPI) RunLEDS(leds []RGBPixel, runTime time.Duration) {
 		time.Sleep(waitTime)
 
 	}
-
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
 		conn.RenderLEDs(leds)
@@ -130,7 +129,6 @@ func (conn *ConnectionSPI) RunLEDS(leds []RGBPixel, runTime time.Duration) {
 		leds = placeInBack(leds, leds[0])
 		waitTime := endTime.Sub(time.Now()) / 100
 		time.Sleep(waitTime)
-
 	}
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
@@ -139,6 +137,20 @@ func (conn *ConnectionSPI) RunLEDS(leds []RGBPixel, runTime time.Duration) {
 		waitTime := (runTime - endTime.Sub(time.Now())) / 100
 		time.Sleep(waitTime)
 	}
+}
+
+//RenderLEDs translates RGBPixels into SPI message and transfers the message
+func (conn *ConnectionSPI) RenderLEDs(pixels []RGBPixel) {
+	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "RenderLEDs"}
+	log.WithFields(logFields).Tracef("RenderLEDs with len %v", len(pixels))
+
+	var translatedRGBs []uint8
+	for _, pixel := range pixels {
+		// Composition of 24bit data of a pixel, is ordered GRB
+		translatedRGBs = append(translatedRGBs,
+			conn.getTranslatedColor([3]uint8{pixel.Green, pixel.Red, pixel.Blue})...)
+	}
+	conn.transfer(translatedRGBs)
 }
 
 // Clear switches off all LEDs

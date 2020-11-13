@@ -20,10 +20,9 @@ type ConnectionSPI struct {
 }
 
 //NewSPI creates a SPI-Connection
-func NewSPI() ConnectionSPI {
+func NewSPI(devicePath string) ConnectionSPI {
 	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "NewSPI"}
 
-	devicePath := "/dev/spidev0.0"
 	hz := physic.Hertz * 2400000
 	log.WithFields(logFields).Tracef("Open spi-dev '%s' with max speed '%v'", devicePath, hz)
 	spiMode := spi.Mode(spi.Mode0)
@@ -34,7 +33,7 @@ func NewSPI() ConnectionSPI {
 	s, err := spireg.Open(devicePath)
 	if err != nil {
 		log.WithFields(logFields).Fatalf(
-			"Failed to open Pt100Connection connection:  %v \n", err)
+			"Failed to open SPI connection:  %v \n", err)
 	}
 	c, err := s.Connect(hz, spiMode, 8)
 	if err != nil {
@@ -59,20 +58,6 @@ func (conn *ConnectionSPI) Close() error {
 		return err
 	}
 	return nil
-}
-
-//RenderLEDs translates RGBPixels into SPI message and transfers the message
-func (conn *ConnectionSPI) RenderLEDs(pixels []RGBPixel) {
-	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "RenderLEDs"}
-	log.WithFields(logFields).Tracef("RenderLEDs with len %v", len(pixels))
-
-	var translatedRGBs []uint8
-	for _, pixel := range pixels {
-		// Composition of 24bit data of a pixel, is ordered GRB
-		translatedRGBs = append(translatedRGBs,
-			conn.getTranslatedColor([3]uint8{pixel.Green, pixel.Red, pixel.Blue})...)
-	}
-	conn.transfer(translatedRGBs)
 }
 
 /*

@@ -14,7 +14,7 @@ func TestSPI(t *testing.T) {
 	ledsTest := CreateTest()
 	ledsWorms := CreateWorms()
 	endTime := time.Now().Add(10 * time.Minute)
-	conn := NewSPI()
+	conn := NewSPI("/dev/spidev0.0")
 	waitTime := 15 * time.Second
 	for time.Now().Before(endTime) {
 		go conn.RunLEDS(ledsTest, waitTime)
