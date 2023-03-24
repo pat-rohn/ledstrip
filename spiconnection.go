@@ -57,7 +57,11 @@ func NewSPI(devicePath string, nrOfLEDs int) ConnectionSPI {
 func (c *ConnectionSPI) Render(pixels []RGBPixel) {
 	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "RenderLEDs"}
 	log.WithFields(logFields).Infof("RenderLEDs with len %v", len(pixels))
-
+	// Fix for Raspberry Pi 3 Model B+ (5.15.84-v7+)
+	// Data signal seems to be splitted sending less than 11 LEDS
+	if len(pixels) < 11 {
+		pixels = append(pixels, []RGBPixel{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}...)
+	}
 	var translatedRGBs []uint8
 	for _, pixel := range pixels {
 

@@ -108,7 +108,7 @@ func RunTest(args []string) {
 	}
 	testVersion, err := strconv.Atoi(args[1])
 	if err != nil {
-		log.Error("Invalid led number %s", args[1])
+		log.Error("Invalid test %s", args[1])
 		nrOfLeds = 30
 	}
 
