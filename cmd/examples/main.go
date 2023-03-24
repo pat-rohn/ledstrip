@@ -1,11 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/pat-rohn/ledstrip"
@@ -13,196 +11,134 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var loglevel string
+var (
+	device   = flag.String("device", "/dev/spidev0.0", "Device (e.g. /dev/spidev0.0)")
+	loglevel = flag.String("verbosity", "w", "verbosity")
+)
 
 func main() {
 	fmt.Println("Led Test Suite")
 	var rootCmd = &cobra.Command{
-		Use:   "worms",
+		Use:   "examples",
 		Short: "LED Strip Test Suite",
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&loglevel, "verbose", "v", "w", "verbosity")
-	var testCmd = &cobra.Command{
-		Use:   "test ledNr Red(int) Green(int) Blue(int)",
+	var colorCmd = &cobra.Command{
+		Use:   "color ledNr Red(int) Green(int) Blue(int)",
 		Args:  cobra.MinimumNArgs(4),
 		Short: "Some LED test",
 		Long: `
 Examples: 
-	worms test 20 50 60 70 -v i`,
+	examples color 20 50 60 70 -v i`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("test %+v\n", args)
 
-			exitFunc := colorTest(args)
-
-			waitForExitSignal(exitFunc)
+			showColor(args)
 			return nil
 		},
 	}
 	var testRunCmd = &cobra.Command{
-		Use:   "test-run ledNr test-version",
+		Use:   "test ledNr test-version",
 		Args:  cobra.MinimumNArgs(2),
 		Short: "Some LED test-run",
 		Long: `
 Examples: 
-	worms test-run 30 1 -v i`,
+	examples test 30 1 -v i`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("test %+v\n", args)
-			exitFunc := colorTestRun(args)
+			RunTest(args)
 
-			waitForExitSignal(exitFunc)
 			return nil
 		},
 	}
+	var clearCmd = &cobra.Command{
+		Use:   "clear ledNr ",
+		Args:  cobra.MinimumNArgs(1),
+		Short: "Turn off LEDs",
+		Long: `
+Examples: 
+	examples clear 30 -v i`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("test %+v\n", args)
+			nrOfLeds, err := strconv.Atoi(args[0])
+			if err != nil {
+				log.Error("Invalid led number %s", args[0])
+				nrOfLeds = 30
+			}
+			c := ledstrip.NewSPI(*device, nrOfLeds)
+			c.Clear()
 
-	rootCmd.AddCommand(testCmd)
+			return nil
+		},
+	}
+	rootCmd.AddCommand(colorCmd)
 	rootCmd.AddCommand(testRunCmd)
+	rootCmd.AddCommand(clearCmd)
+	cobra.OnInitialize(initGlobalFlags)
 	rootCmd.Execute()
 }
 
-func waitForExitSignal(exitFunction func()) {
-	sigchnl := make(chan os.Signal, 1)
-	signal.Notify(sigchnl)
-	exitchnl := make(chan int)
-
-	go func() {
-		for {
-			s := <-sigchnl
-			if s == syscall.SIGTERM {
-				fmt.Println("Got kill signal. ")
-				exitFunction()
-				fmt.Println("Program will terminate now.")
-				os.Exit(0)
-			} else if s == syscall.SIGINT {
-				fmt.Println("Got CTRL+C signal")
-				exitFunction()
-				fmt.Println("Closing.")
-
-				os.Exit(0)
-			} else {
-				fmt.Println("Ignoring signal: ", s)
-			}
-		}
-	}()
-
-	exitcode := <-exitchnl
-	os.Exit(exitcode)
+func initGlobalFlags() {
+	setLogLevel(*loglevel)
 }
 
-func colorTest(args []string) func() {
-	fmt.Printf("args:%+v", args)
-	ledNr, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Errorf("Invalid led number %s", args[0])
-		ledNr = 2
+func setLogLevel(level string) {
+	switch level {
+	case "-trace", "t":
+		log.SetLevel(log.TraceLevel)
+	case "-info", "i":
+		log.SetLevel(log.InfoLevel)
+	case "-warn", "w":
+		log.SetLevel(log.WarnLevel)
+	case "-error", "e":
+		log.SetLevel(log.ErrorLevel)
+	default:
+		fmt.Printf("Invalid log-level %s\n", level)
+		return
 	}
-	var color ledstrip.RGBPixel
-	c, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Error("Invalid red number %s", args[1])
-	}
-	color.Red = uint8(c)
-	c, err = strconv.Atoi(args[2])
-	if err != nil {
-		log.Errorf("Invalid green number %s", args[2])
-	}
-	color.Green = uint8(c)
-	c, err = strconv.Atoi(args[3])
-	if err != nil {
-		log.Errorf("Invalid blue number %s", args[3])
-	}
-
-	color.Blue = uint8(c)
-	log.Infof("Color%+v", color)
-	var leds []ledstrip.RGBPixel
-	conn := ledstrip.NewSPI("/dev/spidev0.0", ledNr)
-
-	for i := 0; i < ledNr; i++ {
-		leds = append(leds, color)
-	}
-
-	conn.RenderLEDs(leds)
-
-	return conn.Exit
-
+	fmt.Printf("LogLevel is set to %s\n", level)
 }
 
-func colorTestRun(args []string) func() {
-	ledNr, err := strconv.Atoi(args[0])
+func RunTest(args []string) {
+
+	nrOfLeds, err := strconv.Atoi(args[0])
 	if err != nil {
 		log.Error("Invalid led number %s", args[0])
-		ledNr = 30
+		nrOfLeds = 30
 	}
 	testVersion, err := strconv.Atoi(args[1])
 	if err != nil {
 		log.Error("Invalid led number %s", args[1])
-		ledNr = 30
+		nrOfLeds = 30
 	}
 
-	c := ledstrip.NewSPI("/dev/spidev0.0", ledNr)
-
-	ledsTest := CreateTest()
-	ledsWorms := CreateWorms()
 	switch testVersion {
 	case 0:
-		go func() {
-			RunLEDS(&c, ledsWorms, time.Second*2)
-		}()
+		runExample0(nrOfLeds)
 	case 1:
-		go func() {
-			RunLEDS(&c, ledsTest, time.Second*2)
-		}()
+		runExample1(nrOfLeds)
 	case 2:
-		go func() {
-			leds := []ledstrip.RGBPixel{{Red: 70, Blue: 35, Green: 0}}
-			rDiff := 1
-			gDiff := -2
-			bDiff := -1
-			max := uint8(70)
-			for {
-				time.Sleep(time.Millisecond * 100)
-				oldColors := leds[0]
-				if oldColors.Red > max {
-					rDiff = -1
-				}
-				if oldColors.Red <= 4 {
-					rDiff = 1
-				}
-				if oldColors.Green > max {
-					gDiff = -2
-				}
-				if oldColors.Green <= 4 {
-					gDiff = 2
-				}
-				if oldColors.Blue > max {
-					bDiff = -1
-				}
-				if oldColors.Blue <= 4 {
-					bDiff = 1
-				}
-				newColor := ledstrip.RGBPixel{
-					Red:   uint8(int(oldColors.Red) + rDiff),
-					Green: uint8(int(oldColors.Green) + gDiff),
-					Blue:  uint8(int(oldColors.Blue) + bDiff)}
-				fmt.Printf("newColor: %d %d %d\n", newColor.Red, newColor.Green, newColor.Blue)
-				for i := range leds {
-					leds[i] = newColor
-					//leds[i] = ledstrip.RGBPixel{Red: oldValues.Red, Green: oldValues.Green, Blue: oldValues.Blue}
-				}
-				if len(leds) < ledNr {
-					leds = append(leds, newColor)
-				}
-				c.RenderLEDs(leds)
-			}
-		}()
+		runExample2(nrOfLeds)
+	default:
+		log.Fatal("Unknown test")
 
 	}
-
-	return c.Exit
 }
 
-// CreateWorms creats a slice of RGBPixels
-func CreateWorms() []ledstrip.RGBPixel {
+func runExample1(nrOfLeds int) {
+
+	fmt.Println("example0: Start Worms")
+	ledsWorms := CreateExample1()
+	c := ledstrip.NewSPI(*device, nrOfLeds)
+	runner := Runner{
+		c: &c,
+	}
+	for {
+		runner.RunLEDS(ledsWorms, time.Second*10)
+	}
+}
+
+func CreateExample1() []ledstrip.RGBPixel {
 	logFields := log.Fields{"func": "CreateWorms"}
 	log.WithFields(logFields).Traceln("CreateWorms")
 
@@ -244,9 +180,8 @@ func CreateWorms() []ledstrip.RGBPixel {
 	return leds
 }
 
-// CreateTest creats a slice of RGBPixels
-func CreateTest() []ledstrip.RGBPixel {
-	logFields := log.Fields{"func": "Test1"}
+func CreateExample2() []ledstrip.RGBPixel {
+	logFields := log.Fields{"func": "CreateTest"}
 	log.WithFields(logFields).Traceln("Test")
 
 	var leds []ledstrip.RGBPixel
@@ -285,39 +220,158 @@ func CreateTest() []ledstrip.RGBPixel {
 	return leds
 }
 
-func RunLEDS(c *ledstrip.ConnectionSPI, leds []ledstrip.RGBPixel, runTime time.Duration) {
+type Runner struct {
+	c *ledstrip.ConnectionSPI
+}
+
+func (r *Runner) RunLEDS(leds []ledstrip.RGBPixel, runTime time.Duration) {
 	logFields := log.Fields{"func": "RunLEDS"}
 	log.WithFields(logFields).Traceln("RunLEDS")
 	runTime = runTime / 4
 	endTime := time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
-		c.RenderLEDs(leds)
+		r.c.Render(leds)
+		log.WithFields(logFields).Infof("1- %08b", leds[len(leds)-1])
 		leds = ledstrip.PlaceInFront(leds, leds[len(leds)-1])
-		waitTime := time.Until(endTime)
-		time.Sleep(waitTime)
-
+		time.Sleep(time.Millisecond * 50)
 	}
+
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
-		c.RenderLEDs(leds)
+		r.c.Render(leds)
+		log.WithFields(logFields).Infof("2 -%08b", leds[len(leds)-1])
 		leds = ledstrip.PlaceInFront(leds, leds[len(leds)-1])
-		waitTime := time.Until(endTime)
-		time.Sleep(waitTime)
+		time.Sleep(time.Millisecond * 50)
 	}
 
 	leds = ledstrip.Inverse(leds)
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
-		c.RenderLEDs(leds)
-		leds = ledstrip.PlaceInBack(leds, leds[0])
-		waitTime := time.Until(endTime)
-		time.Sleep(waitTime)
+		r.c.Render(leds)
+		log.WithFields(logFields).Traceln("3")
+		leds = ledstrip.PlaceAtBack(leds, leds[0])
+		time.Sleep(time.Millisecond * 50)
 	}
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
-		c.RenderLEDs(leds)
-		leds = ledstrip.PlaceInBack(leds, leds[0])
-		waitTime := time.Until(endTime)
-		time.Sleep(waitTime)
+		r.c.Render(leds)
+		log.WithFields(logFields).Traceln("4")
+		leds = ledstrip.PlaceAtBack(leds, leds[0])
+		time.Sleep(time.Millisecond * 50)
+	}
+}
+
+func runExample0(nrOfLeds int) {
+
+	c := ledstrip.NewSPI(*device, nrOfLeds)
+	leds := []ledstrip.RGBPixel{{Red: 50, Blue: 6, Green: 6}}
+	rDiff := -3
+	gDiff := 2
+	bDiff := 1
+	max := uint8(70)
+	min := uint8(5)
+	for {
+		time.Sleep(time.Millisecond * 20)
+		oldColors := leds[0]
+		if oldColors.Red > max {
+			rDiff *= -1
+		}
+		if oldColors.Red <= min {
+			rDiff *= -1
+		}
+		if oldColors.Green > max {
+			gDiff *= -1
+		}
+		if oldColors.Green <= min {
+			gDiff *= -1
+		}
+		if oldColors.Blue > max {
+			bDiff *= -1
+		}
+		if oldColors.Blue <= min {
+			bDiff *= -1
+		}
+		newColor := ledstrip.RGBPixel{
+			Red:   uint8(int(oldColors.Red) + rDiff),
+			Green: uint8(int(oldColors.Green) + gDiff),
+			Blue:  uint8(int(oldColors.Blue) + bDiff),
+		}
+		fmt.Printf("newColor: %d %d %d\n", newColor.Red, newColor.Green, newColor.Blue)
+		for i := range leds {
+			leds[i] = newColor
+		}
+		if len(leds) < nrOfLeds {
+			leds = append(leds, newColor)
+		}
+		c.Render(leds)
+	}
+
+}
+
+func runExample2(nrOfLeds int) {
+
+	fmt.Println("test1: Start Worms")
+	example := CreateExample2()
+	c := ledstrip.NewSPI(*device, nrOfLeds)
+	runner := Runner{
+		c: &c,
+	}
+
+	for {
+		// do not run in go routine
+		runner.RunLEDS(example, time.Second*10)
+	}
+}
+
+func showColor(args []string) {
+	fmt.Printf("args: %+v\n", args)
+	ledNr, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Errorf("Invalid led number %s", args[0])
+		ledNr = 2
+	}
+	var color ledstrip.RGBPixel
+	c, err := strconv.Atoi(args[1])
+	if err != nil {
+		log.Error("Invalid red number %s", args[1])
+	}
+	color.Red = uint8(c)
+	c, err = strconv.Atoi(args[2])
+	if err != nil {
+		log.Errorf("Invalid green number %s", args[2])
+	}
+	color.Green = uint8(c)
+	c, err = strconv.Atoi(args[3])
+	if err != nil {
+		log.Errorf("Invalid blue number %s", args[3])
+	}
+
+	color.Blue = uint8(c)
+	log.Infof("Color %d", ledNr)
+	var leds []ledstrip.RGBPixel
+	/*for i := 0; i < 25; i++ {
+		leds = append(leds, color)
+	}*/
+	conn := ledstrip.NewSPI(*device, ledNr)
+	fmt.Print("No ")
+	for i := len(leds); i < ledNr; i++ {
+		if len(leds) <= ledNr {
+			leds = append(leds, color)
+			time.Sleep(time.Millisecond * 100)
+			fmt.Printf(" %d .. ", i)
+		}
+		conn.Render(leds)
+	}
+	for {
+		for i := 0; i < len(leds); i++ {
+			leds = ledstrip.PlaceInFront(leds, ledstrip.RGBPixel{})
+			time.Sleep(time.Millisecond * 20)
+			conn.Render(leds)
+		}
+		for i := 0; i < len(leds); i++ {
+			leds = ledstrip.PlaceInFront(leds, color)
+			time.Sleep(time.Millisecond * 20)
+			conn.Render(leds)
+		}
 	}
 }

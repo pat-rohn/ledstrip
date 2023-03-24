@@ -38,14 +38,14 @@ Set Red
 	   0       0       0       0       0       0       0       0             0       1       0    ...
 
 
-	100 100 100 100 100 100 100 100       100 110 100 100 100 100 100 100 100  100 100 100 100 100 100 100 // should be
+	100 100 100 100 100 100 100 100       100 110 100 100 100 100 100 100 100  100 100 100 100 100 100 100
 	100 100 100 100 100 100 100 100       100 100 100 100 100 100 100 100 100  100 100 100 100 100 100 100
 	100 100 100 100 100 100 100 110       100 100 100 100 100 100 100 100 100  100 100 100 100 100 100 100
 
 	10010010 01001001 00100100  11011011 01101101 10110110  10010010 01001001 00100100
 	10010010 01001001 00100100  11011011 01101101 10110110  10010010 01001001 00100100
 */
-func (c *ConnectionSPI) GetColorData(pixel RGBPixel) [9]uint8 {
+func GetColorData(pixel RGBPixel) [9]uint8 {
 	colorData := ColorData{
 		bitCounter:  0,
 		byteCounter: 0,
@@ -86,11 +86,9 @@ func (c *ColorData) addBits(high bool) {
 }
 
 func (c *ColorData) addColorValue(color uint8) {
-	hasBit := false
 	for i := 7; i >= 0; i-- { // Most Significant bit first
-		if HasBit(color, uint8(i)) && !hasBit {
+		if HasBit(color, uint8(i)) {
 			c.addBits(true)
-			hasBit = true
 		} else {
 			c.addBits(false)
 		}
