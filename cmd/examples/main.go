@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"strconv"
 	"time"
@@ -11,10 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	device   = flag.String("device", "/dev/spidev0.0", "Device (e.g. /dev/spidev0.0)")
-	loglevel = flag.String("verbosity", "w", "verbosity")
-)
+var device string
+var loglevel string
 
 func main() {
 	fmt.Println("Led Test Suite")
@@ -22,6 +19,9 @@ func main() {
 		Use:   "examples",
 		Short: "LED Strip Test Suite",
 	}
+
+	rootCmd.PersistentFlags().StringVarP(&loglevel, "verbose", "v", "w", "loggign verbosity")
+	rootCmd.PersistentFlags().StringVarP(&device, "spi-evice", "d", "/dev/spidev0.0", "SPI Device")
 
 	var colorCmd = &cobra.Command{
 		Use:   "color ledNr Red(int) Green(int) Blue(int)",
@@ -65,7 +65,7 @@ Examples:
 				log.Error("Invalid led number %s", args[0])
 				nrOfLeds = 30
 			}
-			c := ledstrip.NewSPI(*device, nrOfLeds)
+			c := ledstrip.NewSPI(device, nrOfLeds)
 			c.Clear()
 
 			return nil
@@ -79,7 +79,7 @@ Examples:
 }
 
 func initGlobalFlags() {
-	setLogLevel(*loglevel)
+	setLogLevel(loglevel)
 }
 
 func setLogLevel(level string) {
@@ -125,101 +125,6 @@ func RunTest(args []string) {
 	}
 }
 
-func runExample1(nrOfLeds int) {
-
-	fmt.Println("example0: Start Worms")
-	ledsWorms := CreateExample1()
-	c := ledstrip.NewSPI(*device, nrOfLeds)
-	runner := Runner{
-		c: &c,
-	}
-	for {
-		runner.RunLEDS(ledsWorms, time.Second*10)
-	}
-}
-
-func CreateExample1() []ledstrip.RGBPixel {
-	logFields := log.Fields{"func": "CreateWorms"}
-	log.WithFields(logFields).Traceln("CreateWorms")
-
-	var leds []ledstrip.RGBPixel
-	colorValues := [10]uint8{uint8(0), uint8(2), uint8(4), uint8(4), uint8(8), uint8(8), uint8(16), uint8(32), uint8(32), uint8(64)}
-
-	for i := 0; i < 10; i++ {
-		rVal := colorValues[ledstrip.Pmod(i, 10)]
-		gVal := colorValues[0]
-		bVal := colorValues[0]
-		leds = append(leds, ledstrip.RGBPixel{
-			Red:   rVal,
-			Green: gVal,
-			Blue:  bVal,
-		})
-	}
-	for i := 0; i < 10; i++ {
-		rVal := colorValues[0]
-		gVal := colorValues[ledstrip.Pmod(i, 10)]
-		bVal := colorValues[0]
-		leds = append(leds, ledstrip.RGBPixel{
-			Red:   rVal,
-			Green: gVal,
-			Blue:  bVal,
-		})
-
-	}
-	for i := 0; i < 10; i++ {
-		rVal := colorValues[0]
-		gVal := colorValues[0]
-		bVal := colorValues[ledstrip.Pmod(i, 10)]
-		leds = append(leds, ledstrip.RGBPixel{
-			Red:   rVal,
-			Green: gVal,
-			Blue:  bVal,
-		})
-
-	}
-	return leds
-}
-
-func CreateExample2() []ledstrip.RGBPixel {
-	logFields := log.Fields{"func": "CreateTest"}
-	log.WithFields(logFields).Traceln("Test")
-
-	var leds []ledstrip.RGBPixel
-	colorValues := [10]uint8{uint8(0), uint8(4), uint8(16), uint8(32), uint8(64), uint8(32), uint8(16), uint8(8), uint8(4), uint8(0)}
-
-	for i := 0; i < 10; i++ {
-		rVal := colorValues[ledstrip.Pmod(i, 10)/2]
-		gVal := colorValues[ledstrip.Pmod(i, 10)]
-		bVal := colorValues[0]
-		leds = append(leds, ledstrip.RGBPixel{
-			Red:   rVal,
-			Green: gVal,
-			Blue:  bVal,
-		})
-	}
-	for i := 0; i < 10; i++ {
-		rVal := colorValues[0]
-		gVal := colorValues[ledstrip.Pmod(i, 10)/2]
-		bVal := colorValues[ledstrip.Pmod(i, 10)]
-		leds = append(leds, ledstrip.RGBPixel{
-			Red:   rVal,
-			Green: gVal,
-			Blue:  bVal,
-		})
-	}
-	for i := 0; i < 10; i++ {
-		rVal := colorValues[ledstrip.Pmod(i, 10)]
-		gVal := colorValues[0]
-		bVal := colorValues[ledstrip.Pmod(i, 10)/2]
-		leds = append(leds, ledstrip.RGBPixel{
-			Red:   rVal,
-			Green: gVal,
-			Blue:  bVal,
-		})
-	}
-	return leds
-}
-
 type Runner struct {
 	c *ledstrip.ConnectionSPI
 }
@@ -231,7 +136,6 @@ func (r *Runner) RunLEDS(leds []ledstrip.RGBPixel, runTime time.Duration) {
 	endTime := time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
 		r.c.Render(leds)
-		log.WithFields(logFields).Infof("1- %08b", leds[len(leds)-1])
 		leds = ledstrip.PlaceInFront(leds, leds[len(leds)-1])
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -239,7 +143,6 @@ func (r *Runner) RunLEDS(leds []ledstrip.RGBPixel, runTime time.Duration) {
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
 		r.c.Render(leds)
-		log.WithFields(logFields).Infof("2 -%08b", leds[len(leds)-1])
 		leds = ledstrip.PlaceInFront(leds, leds[len(leds)-1])
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -248,14 +151,12 @@ func (r *Runner) RunLEDS(leds []ledstrip.RGBPixel, runTime time.Duration) {
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
 		r.c.Render(leds)
-		log.WithFields(logFields).Traceln("3")
 		leds = ledstrip.PlaceAtBack(leds, leds[0])
 		time.Sleep(time.Millisecond * 50)
 	}
 	endTime = time.Now().Add(runTime)
 	for time.Now().Before(endTime) {
 		r.c.Render(leds)
-		log.WithFields(logFields).Traceln("4")
 		leds = ledstrip.PlaceAtBack(leds, leds[0])
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -263,10 +164,10 @@ func (r *Runner) RunLEDS(leds []ledstrip.RGBPixel, runTime time.Duration) {
 
 func runExample0(nrOfLeds int) {
 
-	c := ledstrip.NewSPI(*device, nrOfLeds)
-	leds := []ledstrip.RGBPixel{{Red: 50, Blue: 6, Green: 6}}
+	c := ledstrip.NewSPI(device, nrOfLeds)
+	leds := []ledstrip.RGBPixel{{Red: 30, Blue: 6, Green: 10}}
 	rDiff := -3
-	gDiff := 2
+	gDiff := -2
 	bDiff := 1
 	max := uint8(70)
 	min := uint8(5)
@@ -308,11 +209,24 @@ func runExample0(nrOfLeds int) {
 
 }
 
+func runExample1(nrOfLeds int) {
+
+	fmt.Println("example1")
+	ledsWorms := CreateExample1(nrOfLeds)
+	c := ledstrip.NewSPI(device, nrOfLeds)
+	runner := Runner{
+		c: &c,
+	}
+	for {
+		runner.RunLEDS(ledsWorms, time.Second*10)
+	}
+}
+
 func runExample2(nrOfLeds int) {
 
-	fmt.Println("test1: Start Worms")
-	example := CreateExample2()
-	c := ledstrip.NewSPI(*device, nrOfLeds)
+	fmt.Println("test2")
+	example := CreateExample2(nrOfLeds)
+	c := ledstrip.NewSPI(device, nrOfLeds)
 	runner := Runner{
 		c: &c,
 	}
@@ -352,7 +266,7 @@ func showColor(args []string) {
 	/*for i := 0; i < 25; i++ {
 		leds = append(leds, color)
 	}*/
-	conn := ledstrip.NewSPI(*device, ledNr)
+	conn := ledstrip.NewSPI(device, ledNr)
 	fmt.Print("No ")
 	for i := len(leds); i < ledNr; i++ {
 		if len(leds) <= ledNr {
@@ -374,4 +288,90 @@ func showColor(args []string) {
 			conn.Render(leds)
 		}
 	}
+}
+
+func CreateExample1(nrOfLeds int) []ledstrip.RGBPixel {
+	logFields := log.Fields{"func": "CreateExample1"}
+
+	var leds []ledstrip.RGBPixel
+	colorValues := [10]uint8{uint8(0), uint8(2), uint8(4), uint8(4), uint8(8), uint8(8), uint8(16), uint8(32), uint8(32), uint8(64)}
+	for len(leds) < nrOfLeds {
+		for i := 0; i < 10; i++ {
+			rVal := colorValues[ledstrip.Pmod(i, 10)]
+			gVal := colorValues[0]
+			bVal := colorValues[0]
+			leds = append(leds, ledstrip.RGBPixel{
+				Red:   rVal,
+				Green: gVal,
+				Blue:  bVal,
+			})
+		}
+		for i := 0; i < 10; i++ {
+			rVal := colorValues[0]
+			gVal := colorValues[ledstrip.Pmod(i, 10)]
+			bVal := colorValues[0]
+			leds = append(leds, ledstrip.RGBPixel{
+				Red:   rVal,
+				Green: gVal,
+				Blue:  bVal,
+			})
+
+		}
+		for i := 0; i < 10; i++ {
+			rVal := colorValues[0]
+			gVal := colorValues[0]
+			bVal := colorValues[ledstrip.Pmod(i, 10)]
+			leds = append(leds, ledstrip.RGBPixel{
+				Red:   rVal,
+				Green: gVal,
+				Blue:  bVal,
+			})
+		}
+	}
+	leds = leds[:nrOfLeds]
+	log.WithFields(logFields).Infof("Example with %d LEDs created", len(leds))
+	return leds
+}
+
+func CreateExample2(nrOfLeds int) []ledstrip.RGBPixel {
+	logFields := log.Fields{"func": "CreateExample2"}
+	log.WithFields(logFields).Traceln("Example 2")
+
+	var leds []ledstrip.RGBPixel
+	colorValues := [10]uint8{uint8(0), uint8(4), uint8(16), uint8(32), uint8(64), uint8(32), uint8(16), uint8(8), uint8(4), uint8(0)}
+	for len(leds) < nrOfLeds {
+		for i := 0; i < 10; i++ {
+			rVal := colorValues[ledstrip.Pmod(i, 10)/2]
+			gVal := colorValues[ledstrip.Pmod(i, 10)]
+			bVal := colorValues[0]
+			leds = append(leds, ledstrip.RGBPixel{
+				Red:   rVal,
+				Green: gVal,
+				Blue:  bVal,
+			})
+		}
+		for i := 0; i < 10; i++ {
+			rVal := colorValues[0]
+			gVal := colorValues[ledstrip.Pmod(i, 10)/2]
+			bVal := colorValues[ledstrip.Pmod(i, 10)]
+			leds = append(leds, ledstrip.RGBPixel{
+				Red:   rVal,
+				Green: gVal,
+				Blue:  bVal,
+			})
+		}
+		for i := 0; i < 10; i++ {
+			rVal := colorValues[ledstrip.Pmod(i, 10)]
+			gVal := colorValues[0]
+			bVal := colorValues[ledstrip.Pmod(i, 10)/2]
+			leds = append(leds, ledstrip.RGBPixel{
+				Red:   rVal,
+				Green: gVal,
+				Blue:  bVal,
+			})
+		}
+	}
+	leds = leds[:nrOfLeds]
+	log.WithFields(logFields).Infof("Example with %d LEDs created", len(leds))
+	return leds
 }
