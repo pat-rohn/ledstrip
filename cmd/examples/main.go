@@ -21,10 +21,10 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&loglevel, "verbose", "v", "w", "loggign verbosity")
-	rootCmd.PersistentFlags().StringVarP(&device, "spi-evice", "d", "/dev/spidev0.0", "SPI Device")
+	rootCmd.PersistentFlags().StringVarP(&device, "spi-device", "d", "/dev/spidev0.0", "SPI Device")
 
 	var colorCmd = &cobra.Command{
-		Use:   "color ledNr Red(int) Green(int) Blue(int)",
+		Use:   "color nrOfLeds Red Green Blue",
 		Args:  cobra.MinimumNArgs(4),
 		Short: "Some LED test",
 		Long: `
@@ -38,7 +38,7 @@ Examples:
 		},
 	}
 	var testRunCmd = &cobra.Command{
-		Use:   "test ledNr test-version",
+		Use:   "test nrOfLeds test-version",
 		Args:  cobra.MinimumNArgs(2),
 		Short: "Some LED test-run",
 		Long: `
@@ -52,7 +52,7 @@ Examples:
 		},
 	}
 	var clearCmd = &cobra.Command{
-		Use:   "clear ledNr ",
+		Use:   "clear nrOfLeds ",
 		Args:  cobra.MinimumNArgs(1),
 		Short: "Turn off LEDs",
 		Long: `
@@ -103,7 +103,7 @@ func RunTest(args []string) {
 
 	nrOfLeds, err := strconv.Atoi(args[0])
 	if err != nil {
-		log.Error("Invalid led number %s", args[0])
+		log.Error("Invalid number of leds: %s", args[0])
 		nrOfLeds = 30
 	}
 	testVersion, err := strconv.Atoi(args[1])
@@ -232,7 +232,6 @@ func runExample2(nrOfLeds int) {
 	}
 
 	for {
-		// do not run in go routine
 		runner.RunLEDS(example, time.Second*10)
 	}
 }
@@ -241,7 +240,7 @@ func showColor(args []string) {
 	fmt.Printf("args: %+v\n", args)
 	ledNr, err := strconv.Atoi(args[0])
 	if err != nil {
-		log.Errorf("Invalid led number %s", args[0])
+		log.Error("Invalid number leds: %s", args[0])
 		ledNr = 2
 	}
 	var color ledstrip.RGBPixel
