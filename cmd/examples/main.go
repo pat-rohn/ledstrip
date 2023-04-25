@@ -13,9 +13,10 @@ import (
 
 var device string
 var loglevel string
+var fixSPI bool // https://github.com/jgarff/rpi_ws281x/issues/499
 
 func main() {
-	fmt.Println("Led Test Suite")
+	fmt.Println("LED Examples")
 	var rootCmd = &cobra.Command{
 		Use:   "examples",
 		Short: "LED Strip Test Suite",
@@ -23,6 +24,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVarP(&loglevel, "verbose", "v", "w", "loggign verbosity")
 	rootCmd.PersistentFlags().StringVarP(&device, "spi-device", "d", "/dev/spidev0.0", "SPI Device")
+	rootCmd.PersistentFlags().BoolVarP(&fixSPI, "fix-spi", "f", false, "Fix SPI/DMA issue")
 
 	var colorCmd = &cobra.Command{
 		Use:   "color nrOfLeds Red Green Blue",
@@ -66,7 +68,7 @@ Examples:
 				log.Error("Invalid led number %s", args[0])
 				nrOfLeds = 30
 			}
-			c := ledstrip.NewSPI(device, nrOfLeds)
+			c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 			c.Clear()
 
 			return nil
@@ -81,6 +83,9 @@ Examples:
 
 func initGlobalFlags() {
 	setLogLevel(loglevel)
+	if fixSPI {
+		log.Warn("Fixing SPI issue is active")
+	}
 }
 
 func setLogLevel(level string) {
@@ -139,7 +144,6 @@ func RunTest(args []string) {
 				v, err := strconv.Atoi(colorVals1[0])
 				if err != nil {
 					log.Error("Invalid color value: %s", colorVals1[0])
-
 				}
 				color1.Red = uint8(v)
 				v, err = strconv.Atoi(colorVals1[1])
@@ -177,6 +181,62 @@ func RunTest(args []string) {
 		}
 
 		runExample3(nrOfLeds, maskLength, color1, color2)
+	case 4:
+		maskLength := 20
+		if len(args) > 2 {
+			maskLength, err = strconv.Atoi(args[2])
+			if err != nil {
+				log.Error("Invalid mask length: %s", args[2])
+				maskLength = 20
+			}
+		}
+
+		color1 := ledstrip.RGBPixel{Red: 0, Green: 100, Blue: 0}
+		color2 := ledstrip.RGBPixel{Red: 0, Green: 0, Blue: 100}
+		if len(args) > 4 {
+			colorVals1 := strings.Split(args[3], ",")
+			colorVals2 := strings.Split(args[4], ",")
+			if len(colorVals1) == 3 && len(colorVals2) == 3 {
+				v, err := strconv.Atoi(colorVals1[0])
+				if err != nil {
+					log.Error("Invalid color value: %s", colorVals1[0])
+				}
+				color1.Red = uint8(v)
+				v, err = strconv.Atoi(colorVals1[1])
+				if err != nil {
+					log.Error("Invalid color value: %s", colorVals1[1])
+
+				}
+				color1.Green = uint8(v)
+				v, err = strconv.Atoi(colorVals1[2])
+				if err != nil {
+					log.Error("Invalid color value: %s", colorVals1[2])
+
+				}
+				color1.Blue = uint8(v)
+
+				v, err = strconv.Atoi(colorVals2[0])
+				if err != nil {
+					log.Error("Invalid color value: %s", colorVals2[0])
+
+				}
+				color2.Red = uint8(v)
+				v, err = strconv.Atoi(colorVals2[1])
+				if err != nil {
+					log.Error("Invalid color value: %s", colorVals2[1])
+
+				}
+				color2.Green = uint8(v)
+				v, err = strconv.Atoi(colorVals2[2])
+				if err != nil {
+					log.Error("Invalid color value: %s", colorVals2[2])
+
+				}
+				color2.Blue = uint8(v)
+			}
+		}
+
+		runExample4(nrOfLeds, maskLength, color1, color2)
 	default:
 		log.Fatal("Unknown test")
 
@@ -212,7 +272,7 @@ func showColor(args []string) {
 	/*for i := 0; i < 25; i++ {
 		leds = append(leds, color)
 	}*/
-	conn := ledstrip.NewSPI(device, ledNr)
+	conn := ledstrip.NewSPI(device, ledNr, fixSPI)
 	fmt.Print("No ")
 	for i := len(leds); i < ledNr; i++ {
 		if len(leds) <= ledNr {

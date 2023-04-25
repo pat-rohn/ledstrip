@@ -10,7 +10,7 @@ import (
 
 func runExample0(nrOfLeds int) {
 	fmt.Println("example1")
-	c := ledstrip.NewSPI(device, nrOfLeds)
+	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 	leds := []ledstrip.RGBPixel{{Red: 30, Blue: 6, Green: 10}}
 	rDiff := -3
 	gDiff := -2
@@ -58,7 +58,7 @@ func runExample0(nrOfLeds int) {
 func runExample1(nrOfLeds int) {
 	fmt.Println("example1")
 	ledsWorms := createExample1(nrOfLeds)
-	c := ledstrip.NewSPI(device, nrOfLeds)
+	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 	runner := ledstrip.FaderRunner{
 		Conn: &c,
 	}
@@ -71,7 +71,7 @@ func runExample2(nrOfLeds int) {
 
 	fmt.Println("example2")
 	example := createExample2(nrOfLeds)
-	c := ledstrip.NewSPI(device, nrOfLeds)
+	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 	runner := ledstrip.FaderRunner{
 		Conn: &c,
 	}
@@ -83,66 +83,31 @@ func runExample2(nrOfLeds int) {
 
 func runExample3(nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) {
 	fmt.Println("example 3: Color Fading")
-	leds := make([]ledstrip.RGBPixel, nrOfLeds)
 
-	if nrOfLeds%maskLength != 0 {
-		log.Warnf("Length should be divisible with mask length %d %d", nrOfLeds, maskLength)
-	}
-	mask := make([]float32, maskLength)
+	leds := createExample3(nrOfLeds, maskLength, color1, color2)
 
-	factor := 2.0 / float32(maskLength)
-	fmt.Println("Mask: ")
-	for i := range mask {
-		if i < maskLength/2 {
-			mask[i] = float32(i) * factor
-		} else {
-			mask[i] = (float32(maskLength) - float32(i+1)) * factor
-			if mask[i] < 0 {
-				mask[i] = 0
-			}
-		}
-	}
-	fmt.Printf(" %v \n", mask)
-	lastMaskIndex := 0
-	for i := range leds {
-		lastMaskIndex = i % maskLength
-		leds[i%nrOfLeds].Red = uint8(mask[i%maskLength] * float32(color1.Red))
-		leds[i%nrOfLeds].Green = uint8(mask[i%maskLength] * float32(color1.Green))
-		leds[i%nrOfLeds].Blue = uint8(mask[i%maskLength] * float32(color1.Blue))
-		fmt.Printf("%v\n", leds[i])
-	}
-	fmt.Printf("\nlastMaskIndex %v \n", lastMaskIndex)
-
-	fmt.Printf("Combine Colors \n")
-	for i := range leds {
-		maskIndex := (i + maskLength/2) % maskLength
-		red := float32(leds[i].Red) + float32(color2.Red)*mask[maskIndex]
-		if red > 255 {
-			red = 255
-		}
-		green := float32(leds[i].Green) + float32(color2.Green)*mask[maskIndex]
-		if green > 255 {
-			green = 255
-		}
-		blue := float32(leds[i].Blue) + float32(color2.Blue)*mask[maskIndex]
-		if blue > 255 {
-			blue = 255
-		}
-		leds[i].Red = uint8(red)
-		leds[i].Green = uint8(green)
-		leds[i].Blue = uint8(blue)
-		fmt.Printf("%v / %v / %d (%v) \n", leds[i], i, maskIndex, mask[maskIndex])
-	}
-
-	fmt.Printf("\n%v\n", leds)
-
-	c := ledstrip.NewSPI(device, nrOfLeds)
+	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 	runner := ledstrip.FaderRunner{
 		Conn: &c,
 	}
 
 	for {
 		runner.RunLEDS(leds, 1)
+	}
+}
+
+func runExample4(nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) {
+	fmt.Println("example 4: Color Fading ")
+
+	leds := createExample3(nrOfLeds, maskLength, color1, color2)
+
+	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
+	runner := ledstrip.FaderRunner{
+		Conn: &c,
+	}
+
+	for {
+		runner.RunLEDSSplit(leds, 2, false)
 	}
 }
 
@@ -229,5 +194,51 @@ func createExample2(nrOfLeds int) []ledstrip.RGBPixel {
 	}
 	leds = leds[:nrOfLeds]
 	log.WithFields(logFields).Infof("Example with %d LEDs created", len(leds))
+	return leds
+}
+
+func createExample3(nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) []ledstrip.RGBPixel {
+	leds := make([]ledstrip.RGBPixel, nrOfLeds)
+
+	if nrOfLeds%maskLength != 0 {
+		log.Warnf("Length should be divisible with mask length %d %d", nrOfLeds, maskLength)
+	}
+	mask := make([]float32, maskLength)
+
+	factor := 2.0 / float32(maskLength)
+	for i := range mask {
+		if i < maskLength/2 {
+			mask[i] = float32(i) * factor
+		} else {
+			mask[i] = (float32(maskLength) - float32(i+1)) * factor
+			if mask[i] < 0 {
+				mask[i] = 0
+			}
+		}
+	}
+	for i := range leds {
+		leds[i%nrOfLeds].Red = uint8(mask[i%maskLength] * float32(color1.Red))
+		leds[i%nrOfLeds].Green = uint8(mask[i%maskLength] * float32(color1.Green))
+		leds[i%nrOfLeds].Blue = uint8(mask[i%maskLength] * float32(color1.Blue))
+	}
+
+	for i := range leds {
+		maskIndex := (i + maskLength/2) % maskLength
+		red := float32(leds[i].Red) + float32(color2.Red)*mask[maskIndex]
+		if red > 255 {
+			red = 255
+		}
+		green := float32(leds[i].Green) + float32(color2.Green)*mask[maskIndex]
+		if green > 255 {
+			green = 255
+		}
+		blue := float32(leds[i].Blue) + float32(color2.Blue)*mask[maskIndex]
+		if blue > 255 {
+			blue = 255
+		}
+		leds[i].Red = uint8(red)
+		leds[i].Green = uint8(green)
+		leds[i].Blue = uint8(blue)
+	}
 	return leds
 }

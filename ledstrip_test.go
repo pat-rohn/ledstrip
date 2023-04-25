@@ -14,7 +14,7 @@ func TestColorValue(t *testing.T) {
 
 	log.Traceln("TestSPI")
 
-	emptyData := ledstrip.GetColorData(ledstrip.RGBPixel{0, 0, 0})
+	emptyData := ledstrip.GetColorData(ledstrip.RGBPixel{0, 0, 0}, false)
 
 	fmt.Printf("%08b\n", emptyData)
 	//fmt.Printf("%08b\n", oldEmptyData)
@@ -25,7 +25,7 @@ func TestColorValue(t *testing.T) {
 	color := ledstrip.RGBPixel{7, 32, 128}
 
 	for l := 0; l < leds; l++ {
-		newData := ledstrip.GetColorData(color)
+		newData := ledstrip.GetColorData(color, false)
 		for _, d := range newData {
 			colorData = append(colorData, d)
 		}
@@ -48,7 +48,7 @@ func TestPerformance(t *testing.T) {
 
 	log.Traceln("TestSPI")
 
-	emptyData := ledstrip.GetColorData(ledstrip.RGBPixel{0, 0, 0})
+	emptyData := ledstrip.GetColorData(ledstrip.RGBPixel{0, 0, 0}, false)
 
 	fmt.Printf("%08b\n", emptyData)
 
@@ -56,7 +56,7 @@ func TestPerformance(t *testing.T) {
 	startTime := time.Now()
 	for i := 0; i < 500000; i++ {
 		for l := 0; l < leds; l++ {
-			ledstrip.GetColorData(ledstrip.RGBPixel{10, 20, 30})
+			ledstrip.GetColorData(ledstrip.RGBPixel{10, 20, 30}, false)
 		}
 	}
 

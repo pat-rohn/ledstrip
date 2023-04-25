@@ -19,10 +19,11 @@ type ConnectionSPI struct {
 	portCloser spi.PortCloser
 	spiDev     spi.Conn
 	NrOfLeds   int
+	FixSPI     bool
 }
 
 // NewSPI creates a SPI-Connection
-func NewSPI(devicePath string, nrOfLEDs int) ConnectionSPI {
+func NewSPI(devicePath string, nrOfLEDs int, fixSPI bool) ConnectionSPI {
 	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "NewSPI"}
 	if _, err := host.Init(); err != nil {
 		log.Fatal(err)
@@ -48,6 +49,7 @@ func NewSPI(devicePath string, nrOfLEDs int) ConnectionSPI {
 		portCloser: s,
 		spiDev:     c,
 		NrOfLeds:   nrOfLEDs,
+		FixSPI:     fixSPI,
 	}
 
 	return conn
@@ -65,7 +67,7 @@ func (c *ConnectionSPI) Render(pixels []RGBPixel) {
 	var translatedRGBs []uint8
 	for _, pixel := range pixels {
 
-		colorData := GetColorData(pixel)
+		colorData := GetColorData(pixel, c.FixSPI)
 		log.WithFields(logFields).Tracef("%08b", pixel)
 
 		for _, c := range colorData {
@@ -104,7 +106,7 @@ func (c *ConnectionSPI) Clear() {
 
 	var clearArray []uint8
 	for i := 0; i < c.NrOfLeds; i++ {
-		for _, color := range GetColorData(RGBPixel{Red: 0, Green: 0, Blue: 0}) {
+		for _, color := range GetColorData(RGBPixel{Red: 0, Green: 0, Blue: 0}, c.FixSPI) {
 			clearArray = append(clearArray, color)
 		}
 	}

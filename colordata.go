@@ -1,11 +1,15 @@
 package ledstrip
 
-import log "github.com/sirupsen/logrus"
+import (
+	log "github.com/sirupsen/logrus"
+)
 
 type ColorData struct {
 	bitCounter  uint8
 	byteCounter int
 	ColorData   [9]uint8
+	FixSPI      bool
+	ignoreNext  bool
 }
 
 /*
@@ -27,9 +31,17 @@ Set all to 0
 
 Set all to 1
 
-	  G7      G6      G5      G4      G3      G2      G1      G0      /      R7      R6      R5   ...
+		G7      G6      G5      G4      G3      G2      G1      G0      /      R7      R6      R5   ...
 	[1 1 0] [1 1 0] [1 1 0] [1 1 0] [1 1 0] [1 1 0] [1 1 0] [1 1 0]       [1 1 0] [1 1 0] [1 1 0] ...
-	   1       1       1       1       1       1       1       1             1       1       1    ...
+		1       1       1       1       1       1       1       1             1       1       1    ...
+	   128     64       32      16      8       4       2       1             128     64      32   ...
+
+SPI issue
+
+		G7      G6     G5          G4      G3          G2      G1      G0        /      R7      R6      R5   ...
+	[1 1 0] [1 1 0] [1 1 XX 0 ]  [1 1 0] [1 1 0] [1  XX 1 0] [1 1 0] [1 1 0] XX      [1 1 0] [1 1 0] [1 1 0] ...
+	   1       1       1 XX         1       1        XX 1       1       1    XX         1       1       1    ...
+	  128      64     32 XX         16      8        XX 4       2       1    XX         128     64      32   ...
 
 Set Red
 
@@ -45,11 +57,13 @@ Set Red
 	10010010 01001001 00100100  11011011 01101101 10110110  10010010 01001001 00100100
 	10010010 01001001 00100100  11011011 01101101 10110110  10010010 01001001 00100100
 */
-func GetColorData(pixel RGBPixel) [9]uint8 {
+func GetColorData(pixel RGBPixel, fixSPI bool) [9]uint8 {
 	colorData := ColorData{
 		bitCounter:  0,
 		byteCounter: 0,
 		ColorData:   [9]uint8{},
+		FixSPI:      fixSPI,
+		ignoreNext:  false,
 	}
 	colorData.addColorValue(pixel.Green)
 	colorData.addColorValue(pixel.Red)
@@ -63,8 +77,14 @@ func (c *ColorData) setNextBit(high bool) {
 	if high {
 		c.ColorData[c.byteCounter] = SetBit(c.ColorData[c.byteCounter], c.bitCounter)
 	}
+	if c.ignoreNext && c.FixSPI {
+		c.ignoreNext = false
+		return
+	}
+
 	c.bitCounter++
 	if c.bitCounter > 7 {
+		c.ignoreNext = true
 		log.Tracef("%d - %08b", c.byteCounter, c.ColorData[c.byteCounter])
 		c.bitCounter = 0
 		c.byteCounter++
