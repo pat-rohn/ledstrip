@@ -22,18 +22,17 @@ type ConnectionSPI struct {
 	FixSPI     bool
 }
 
-// NewSPI creates a SPI-Connection
-func NewSPI(devicePath string, nrOfLEDs int, fixSPI bool) ConnectionSPI {
+func New(devicePath string, nrOfLEDs int, spiMode spi.Mode, fixSPI bool) (ConnectionSPI, error) {
 	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "NewSPI"}
 	if _, err := host.Init(); err != nil {
 		log.Fatal(err)
 	}
 	hz := physic.Hertz * 2400000
 	log.WithFields(logFields).Infof("Open spi-dev '%s' with max speed '%v'", devicePath, hz)
-	spiMode := spi.Mode(spi.Mode0)
 	log.WithFields(logFields).Infof("SPI mode:  %v %b\n", spiMode.String(), spiMode)
 	if _, err := driverreg.Init(); err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return ConnectionSPI{}, err
 	}
 
 	s, err := spireg.Open(devicePath)
@@ -52,7 +51,40 @@ func NewSPI(devicePath string, nrOfLEDs int, fixSPI bool) ConnectionSPI {
 		FixSPI:     fixSPI,
 	}
 
-	return conn
+	return conn, nil
+}
+
+func NewSPI(devicePath string, nrOfLEDs int, fixSPI bool) (ConnectionSPI, error) {
+	logFields := log.Fields{"package": logPkg, "conn": "SPI", "func": "NewSPI"}
+	if _, err := host.Init(); err != nil {
+		log.Fatal(err)
+	}
+	hz := physic.Hertz * 2400000
+	log.WithFields(logFields).Infof("Open spi-dev '%s' with max speed '%v'", devicePath, hz)
+	spiMode := spi.Mode(spi.Mode0)
+	log.WithFields(logFields).Infof("SPI mode:  %v %b\n", spiMode.String(), spiMode)
+	if _, err := driverreg.Init(); err != nil {
+		log.Error(err)
+		return ConnectionSPI{}, err
+	}
+
+	s, err := spireg.Open(devicePath)
+	if err != nil {
+		log.WithFields(logFields).Fatalf("Failed to open SPI connection:  %v \n", err)
+	}
+	c, err := s.Connect(hz, spiMode, 8)
+	if err != nil {
+		log.WithFields(logFields).Fatalf("Failed to connect %v\n", err)
+	}
+
+	conn := ConnectionSPI{
+		portCloser: s,
+		spiDev:     c,
+		NrOfLeds:   nrOfLEDs,
+		FixSPI:     fixSPI,
+	}
+
+	return conn, nil
 }
 
 // Render translates RGBPixels into SPI message and transfers the message

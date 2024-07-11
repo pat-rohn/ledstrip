@@ -8,9 +8,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func runExample0(nrOfLeds int) {
+func runExample0(c *ledstrip.ConnectionSPI, nrOfLeds int) {
 	fmt.Println("example1")
-	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
+
 	leds := []ledstrip.RGBPixel{{Red: 30, Blue: 6, Green: 10}}
 	rDiff := -3
 	gDiff := -2
@@ -55,25 +55,24 @@ func runExample0(nrOfLeds int) {
 
 }
 
-func runExample1(nrOfLeds int) {
+func runExample1(c *ledstrip.ConnectionSPI, nrOfLeds int) {
 	fmt.Println("example1")
 	ledsWorms := createExample1(nrOfLeds)
-	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
+
 	runner := ledstrip.FaderRunner{
-		Conn: &c,
+		Conn: c,
 	}
 	for {
 		runner.RunLEDS(ledsWorms, 0.5)
 	}
 }
 
-func runExample2(nrOfLeds int) {
+func runExample2(c *ledstrip.ConnectionSPI, nrOfLeds int) {
 
 	fmt.Println("example2")
 	example := createExample2(nrOfLeds)
-	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 	runner := ledstrip.FaderRunner{
-		Conn: &c,
+		Conn: c,
 	}
 
 	for {
@@ -81,14 +80,13 @@ func runExample2(nrOfLeds int) {
 	}
 }
 
-func runExample3(nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) {
+func runExample3(c *ledstrip.ConnectionSPI, nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) {
 	fmt.Println("example 3: Color Fading")
 
 	leds := createExample3(nrOfLeds, maskLength, color1, color2)
 
-	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
 	runner := ledstrip.FaderRunner{
-		Conn: &c,
+		Conn: c,
 	}
 
 	for {
@@ -96,18 +94,22 @@ func runExample3(nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 
 	}
 }
 
-func runExample4(nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) {
+func runExample4(c *ledstrip.ConnectionSPI, nrOfLeds int, maskLength int, color1 ledstrip.RGBPixel, color2 ledstrip.RGBPixel) {
 	fmt.Println("example 4: Color Fading ")
 
 	leds := createExample3(nrOfLeds, maskLength, color1, color2)
+	go func() {
+		runner := ledstrip.FaderRunner{
+			Conn: c,
+		}
 
-	c := ledstrip.NewSPI(device, nrOfLeds, fixSPI)
-	runner := ledstrip.FaderRunner{
-		Conn: &c,
-	}
-
+		for {
+			runner.RunLEDSSplit(leds, 2, false)
+		}
+	}()
 	for {
-		runner.RunLEDSSplit(leds, 2, false)
+		time.Sleep(time.Second * 1)
+		fmt.Printf(" ... ")
 	}
 }
 
